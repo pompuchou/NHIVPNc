@@ -5,8 +5,34 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:NHIVPNc"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="NHIVPN" Height="450" Width="800" Icon="dog-paw.png">
     <Grid>
-        
+        <Menu Height="30" VerticalAlignment="Top" HorizontalAlignment="Stretch">
+            <MenuItem Header="VPN" Click="VPN_click"/>
+            <MenuItem Header="院所下載"/>
+            <MenuItem Header="下載專區"/>
+            <MenuItem Header="更新表格" Click="Refresh_Click"/>
+        </Menu>
+        <TabControl HorizontalAlignment="Stretch" Margin="0,30,0,0" VerticalAlignment="Stretch">
+            <TabItem Header="網頁">
+                <Grid Background="#FFE5E5E5">
+                    <WebBrowser Name="vpnweb" HorizontalAlignment="Stretch"/>
+                </Grid>
+            </TabItem>
+            <TabItem Header="表格">
+                <Grid Background="#FFE5E5E5">
+                    <DataGrid Name="DLData" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" AutoGenerateColumns="False">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="檔案名稱" Width="1*" Binding="{Binding f_name}"/>
+                            <DataGridTextColumn Header="檔案註解" Width="1*" Binding="{Binding f_remark}" />
+                            <DataGridTextColumn Header="註解" Width="1*" Binding="{Binding remark}" />
+                            <DataGridTextColumn Header="供下載日期" Width="150" Binding="{Binding SDATE}" />
+                            <DataGridCheckBoxColumn Header="已下載" Width="25" Binding="{Binding download}" />
+                            <DataGridTextColumn Header="下載日期" Width="150" Binding="{Binding QDATE}" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+        </TabControl>
     </Grid>
 </Window>

@@ -1,0 +1,26 @@
+﻿<?xml version="1.0" encoding="utf-8"?><Database Name="al" Class="NHI_aDataContext" xmlns="http://schemas.microsoft.com/linqtosql/dbml/2007">
+  <Connection Mode="AppSettings" ConnectionString="Data Source=S1\S1;Initial Catalog=al;Persist Security Info=True;User ID=sa" SettingsObjectName="NHIVPNc.Properties.Settings" SettingsPropertyName="alConnectionString" Provider="System.Data.SqlClient" />
+  <Table Name="dbo.log_Adm" Member="log_Adm">
+    <Type Name="log_Adm">
+      <Column Name="access_id" Type="System.Int64" DbType="BigInt NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
+      <Column Name="regdate" Type="System.DateTime" DbType="DateTime NOT NULL" CanBeNull="false" />
+      <Column Name="application_name" Type="System.String" DbType="NVarChar(50)" CanBeNull="true" />
+      <Column Name="machine_name" Type="System.String" DbType="NVarChar(50)" CanBeNull="true" />
+      <Column Name="ip_address" Type="System.String" DbType="NVarChar(50)" CanBeNull="true" />
+      <Column Name="userid" Type="System.String" DbType="NVarChar(50) NOT NULL" CanBeNull="false" />
+      <Column Name="operation_name" Type="System.String" DbType="NVarChar(50)" CanBeNull="true" />
+      <Column Name="description" Type="System.String" DbType="Text" CanBeNull="true" UpdateCheck="Never" />
+    </Type>
+  </Table>
+  <Table Name="dbo.log_Err" Member="log_Err">
+    <Type Name="log_Err">
+      <Column Name="error_id" Type="System.Int64" DbType="BigInt NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
+      <Column Name="error_date" Type="System.DateTime" DbType="DateTime NOT NULL" CanBeNull="false" />
+      <Column Name="application_name" Type="System.String" DbType="NVarChar(50)" CanBeNull="true" />
+      <Column Name="machine_name" Type="System.String" DbType="NVarChar(50)" CanBeNull="true" />
+      <Column Name="ip_address" Type="System.String" DbType="NVarChar(50)" CanBeNull="true" />
+      <Column Name="userid" Type="System.String" DbType="NVarChar(50) NOT NULL" CanBeNull="false" />
+      <Column Name="error_message" Type="System.String" DbType="Text" CanBeNull="true" UpdateCheck="Never" />
+    </Type>
+  </Table>
+</Database>

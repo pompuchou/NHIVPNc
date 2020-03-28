@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?><Database Name="BL" Class="NHIDataContext" xmlns="http://schemas.microsoft.com/linqtosql/dbml/2007">
+  <Connection Mode="AppSettings" ConnectionString="Data Source=S1\S1;Initial Catalog=BL;Persist Security Info=True;User ID=sa" SettingsObjectName="NHIVPNc.Properties.Settings" SettingsPropertyName="BLConnectionString" Provider="System.Data.SqlClient" />
+  <Table Name="dbo.tbl_download" Member="tbl_download">
+    <Type Name="tbl_download">
+      <Column Name="f_name" Type="System.String" DbType="NVarChar(100) NOT NULL" IsPrimaryKey="true" CanBeNull="false" />
+      <Column Name="f_remark" Type="System.String" DbType="NVarChar(200)" CanBeNull="true" />
+      <Column Name="remark" Type="System.String" DbType="NVarChar(200)" CanBeNull="true" />
+      <Column Name="SDATE" Type="System.DateTime" DbType="DateTime NOT NULL" IsPrimaryKey="true" CanBeNull="false" />
+      <Column Name="download" Type="System.Boolean" DbType="Bit" CanBeNull="true" />
+      <Column Name="QDATE" Type="System.DateTime" DbType="DateTime" CanBeNull="true" />
+    </Type>
+  </Table>
+</Database>
