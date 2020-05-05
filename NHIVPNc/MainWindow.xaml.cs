@@ -2,7 +2,6 @@
 using mshtml;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Timers;
@@ -55,17 +54,18 @@ namespace NHIVPNc
         {
             /// 20200329 transcribed from vb.net 20191020 created
             /// 存儲頁面
+            log.Info("Download key pressed.");
 
             this.TabControl1.SelectedItem = this.TabPage1;
+
+            #region 判斷多頁
+
             /// 取得gvList
             HTMLDocument d = (HTMLDocument)vpnweb.Document;
             IHTMLElement gvDownLoad = d.getElementById("ContentPlaceHolder1_gvDownLoad");
             /// is nothing  ==>  == null
             if (gvDownLoad == null) return;
-
             // 20200329: wpf 要增加reference to Microsoft.mshtml, 已經沒有winform的htmlelement了
-
-            #region 判斷多頁
 
             // initialize
             current_page = total_pages = 0;
@@ -76,6 +76,7 @@ namespace NHIVPNc
             {
                 /// 沒有ContentPlaceHolder1_pg_gvList, 表示只有ㄧ頁
                 total_pages = 1;
+                log.Info($"Only one page detected.");
             }
             else
             {
@@ -86,6 +87,7 @@ namespace NHIVPNc
                 pg.LoadHtml(d.getElementById("ctl00$ContentPlaceHolder1$pgDownLoad_input").innerHTML);
                 HtmlNodeCollection o = pg.DocumentNode.SelectNodes("//option");
                 total_pages = o.Count;
+                log.Info($"{total_pages} pages detected.");
             }
 
             #endregion 判斷多頁
@@ -95,12 +97,82 @@ namespace NHIVPNc
             Vpn_PageData();
         }
 
+        private void Refresh_Click(object sender, RoutedEventArgs e)
+        {
+            Refresh_Table();
+        }
+
+        private void SP_Click(object sender, RoutedEventArgs e)
+        {
+        }
+
+        #endregion "Buttons"
+
+        private void TimersTimer_Elapsed(object sender, ElapsedEventArgs e)
+        {
+            this.Dispatcher.Invoke((Action)(() =>
+            {
+                log.Info($"Now dealing with line {current_line}.");
+                HTMLDocument d = (HTMLDocument)vpnweb.Document;
+                IHTMLElement gvDownLoad = d.getElementById("ContentPlaceHolder1_gvDownLoad");
+                IHTMLElementCollection trs_ = gvDownLoad.all;
+                IHTMLElementCollection trs = trs_.tags("tr");
+                IHTMLElement tr = trs.item(current_line, null);
+                IHTMLElement a = tr.children[4].children[0];
+                a.click();
+                log.Info($"button click: {a.outerHTML}");
+
+                System.Threading.ThreadStart th_begin = new System.Threading.ThreadStart(Work_todo);
+                System.Threading.Thread thr = new System.Threading.Thread(th_begin)
+                {
+                    IsBackground = true,
+                    Name = "PressS"
+                };
+                thr.Start();
+
+                // 判斷是否這一頁讀完了? 是否最後一頁了?
+                if ((queue_files.Count == 0) && (current_page == total_pages))
+                {
+                    // 這頁讀完, 且所有頁都讀完了.
+                    this._timer1.Stop();
+                    Refresh_Table();
+                    return;
+                }
+                else if (queue_files.Count == 0)
+                {
+                    // 這頁讀完, 還有下一頁
+                    this._timer1.Stop();
+
+                    // 如果下一頁, 前往下一頁
+                    current_page++;
+                    vpnweb.LoadCompleted += Vpn_Page_LoadCompleted;
+                    // 按鈕機制
+                    foreach (IHTMLElement b in d.getElementById("ContentPlaceHolder1_pgDownLoad").all)
+                    {
+                        if (b.innerText == ">")
+                        {
+                            b.click();
+                        }
+                    }
+                    return;
+                }
+                else
+                {
+                    current_line = queue_files.Dequeue();
+                }
+            }));
+        }
+
         private void Vpn_PageData()
         {
+            log.Info($"Currently on page {current_page}/{total_pages}.");
             vpnweb.LoadCompleted -= Vpn_Page_LoadCompleted;
+
             // local variables
             Dictionary<int, string> VPN_files = new Dictionary<int, string>();
             List<string> Local_files = new List<string>();
+
+            #region write in sql table
 
             /// 取得gvList
             HTMLDocument d = (HTMLDocument)vpnweb.Document;
@@ -122,8 +194,6 @@ namespace NHIVPNc
             /// 20200503 我發現Html Agility Pack不能click
             /// 只好第一層是ihtmlelement
 
-            #region write in sql table
-
             VPN_files.Clear();
             for (current_line = 1; current_line < trs.length; current_line++)
             {
@@ -143,7 +213,6 @@ namespace NHIVPNc
                     {
                         case 0:  //檔案名稱
                             s_f_name = td.InnerText;
-                            VPN_files.Add(current_line, s_f_name);
                             break;
 
                         case 1: //檔案說明
@@ -165,13 +234,18 @@ namespace NHIVPNc
                             break;
 
                         case 4: //檔案下載
-                            if (td.SelectNodes("//a").Count == 2)
+                            switch (td.SelectNodes("//a").Count)
                             {
-                                b_archive = false;
-                            }
-                            else
-                            {
-                                b_archive = true;
+                                case 2:
+                                    b_archive = false;
+                                    break;
+
+                                case 1:
+                                    b_archive = true;
+                                    break;
+
+                                default:
+                                    break;
                             }
                             break;
 
@@ -179,6 +253,11 @@ namespace NHIVPNc
                             break;
                     }
                     order_n++;
+                }
+                if (!b_archive)
+                {
+                    VPN_files.Add(current_line, s_f_name);
+                    log.Info($"{current_line}, {s_f_name} added to VPN_files.");
                 }
 
                 using (NHIDataContext dc = new NHIDataContext())
@@ -220,61 +299,45 @@ namespace NHIVPNc
             // read file data from directory
             foreach (string f in Directory.GetFiles(@"D:\IDrive-Sync\archive"))
             {
-                Local_files.Add(f.Replace(@"D:\IDrive-Sync\archive\", "").Replace(".zip", ""));
+                string ff = f.Replace(@"D:\IDrive-Sync\archive\", "").Replace(".zip", "");
+                Local_files.Add(ff);
+                log.Info($"{ff} added to Local_files.");
             }
 
-            // making queue_files, using linq
+            // making queue_files
             foreach (KeyValuePair<int, string> v in VPN_files)
             {
-                if (!Local_files.Contains(v.Value)) queue_files.Enqueue(v.Key);
+                if (!Local_files.Contains(v.Value))
+                {
+                    queue_files.Enqueue(v.Key);
+                    log.Info($"{v.Key}: {v.Value} enqueued.");
+                }
             }
 
-            // execution
-            this._timer1 = new System.Timers.Timer
+            if (queue_files.Count == 0)
             {
-                Interval = 6000
-            };
-            this._timer1.Elapsed += new System.Timers.ElapsedEventHandler(TimersTimer_Elapsed);
-
-            int time_needed_to_wait = 6000 * queue_files.Count + 100;
-
-            // initialization
-            current_line = 0;
-            current_line = queue_files.Dequeue();
-
-            this._timer1.Start();
-
-            // wait until finished.
-            System.Threading.Thread.Sleep(time_needed_to_wait);
-
-            #endregion download files
-
-            #region last page?
-
-            // 判斷是否最後一頁了?
-            if (current_page == total_pages)
-            {
-                // 已讀完所有頁面
-                // 結束
-                return;
+                log.Info($"Nothing enqueued on page {current_page}/{total_pages}");
             }
             else
             {
-                // 如果還有下一頁, 前往下一頁
-                current_page++;
-                vpnweb.LoadCompleted += Vpn_Page_LoadCompleted;
-                // 按鈕機制
-                foreach (IHTMLElement a in d.getElementById("ContentPlaceHolder1_pgDownLoad").all)
+                // 有東西才需要執行
+
+                // execution
+                this._timer1 = new System.Timers.Timer
                 {
-                    if (a.innerText == ">")
-                    {
-                        a.click();
-                    }
-                }
-                return;
+                    Interval = 6000
+                };
+                this._timer1.Elapsed += new System.Timers.ElapsedEventHandler(TimersTimer_Elapsed);
+
+                // initialization
+                current_line = 0;
+                current_line = queue_files.Dequeue();
+
+                this._timer1.Start();
             }
 
-            #endregion last page?
+            #endregion download files
+
         }
 
         private void Vpn_Page_LoadCompleted(object sender, NavigationEventArgs e)
@@ -291,48 +354,14 @@ namespace NHIVPNc
             sim.Keyboard.KeyPress(VirtualKeyCode.RETURN);
         }
 
-        private void Refresh_Click(object sender, RoutedEventArgs e)
+        private void Refresh_Table()
         {
-            NHIDataContext dc = new NHIDataContext();
-            DLData.ItemsSource = dc.tbl_download;
-        }
-
-        private void SP_Click(object sender, RoutedEventArgs e)
-        {
-        }
-
-        private void TimersTimer_Elapsed(object sender, ElapsedEventArgs e)
-        {
-            this.Dispatcher.Invoke((Action)(() =>
+            using (NHIDataContext dc = new NHIDataContext())
             {
-                HTMLDocument d = (HTMLDocument)vpnweb.Document;
-                IHTMLElement gvDownLoad = d.getElementById("ContentPlaceHolder1_gvDownLoad");
-                IHTMLElementCollection trs_ = gvDownLoad.all;
-                IHTMLElementCollection trs = trs_.tags("tr");
-                IHTMLElement tr = trs.item(current_line, null);
-                IHTMLElement a = tr.children[4].children[0];
-                a.click();
-                Debug.WriteLine($"button click: {a.outerHTML}");
-
-                System.Threading.ThreadStart th_begin = new System.Threading.ThreadStart(Work_todo);
-                System.Threading.Thread thr = new System.Threading.Thread(th_begin)
-                {
-                    IsBackground = true,
-                    Name = "PressS"
-                };
-                thr.Start();
-
-                if (queue_files.Count == 0)
-                {
-                    this._timer1.Stop();
-                }
-                else
-                {
-                    current_line = queue_files.Dequeue();
-                }
-            }));
+                DLData.ItemsSource = from p in dc.tbl_download
+                                     orderby p.SDATE descending
+                                     select p;
+            }
         }
-
-        #endregion "Buttons"
     }
 }
