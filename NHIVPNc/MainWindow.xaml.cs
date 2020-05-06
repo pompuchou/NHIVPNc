@@ -1,7 +1,9 @@
-﻿using HtmlAgilityPack;
+﻿using Hardcodet.Wpf.TaskbarNotification;
+using HtmlAgilityPack;
 using mshtml;
 using System;
 using System.Collections.Generic;
+using System.Deployment.Application;
 using System.IO;
 using System.Linq;
 using System.Timers;
@@ -30,8 +32,14 @@ namespace NHIVPNc
         private static readonly log4net.ILog log = LogHelper.GetLogger();
 
         private System.Timers.Timer _timer1;
+        private readonly TaskbarIcon tb = new TaskbarIcon();
 
         private int current_page, total_pages, current_line;
+
+        // local variables
+        private readonly Dictionary<int, string> VPN_files = new Dictionary<int, string>();
+
+        private readonly List<string> Local_files = new List<string>();
         private readonly Queue<int> queue_files = new Queue<int>();
 
         #endregion "Declaration"
@@ -39,24 +47,63 @@ namespace NHIVPNc
         public MainWindow()
         {
             InitializeComponent();
-            log.Info("Log in successfully.");
         }
 
-        #region "Buttons"
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            string version;
+            try
+            {
+                //// get deployment version
+                version = ApplicationDeployment.CurrentDeployment.CurrentVersion.ToString();
+            }
+            catch (InvalidDeploymentException)
+            {
+                //// you cannot read publish version when app isn't installed 
+                //// (e.g. during debug)
+                version = "debugging, not installed";
+            }
+            this.Title += $" v.{version}";
+            log.Info($"Log in. Version: {version}");
+
+            Refresh_Table();
+        }
+
+        #region Buttons
 
         private void VPN_click(object sender, RoutedEventArgs e)
         {
+            log.Info("Enter VPN_click due to button pressed.");
             /// 2020/03/28 created, transcribed from vb.net
             vpnweb.Navigate("https://medvpn.nhi.gov.tw/ieae0000/IEAE0200S01.aspx");
+            log.Info("Exit VPN_click.");
         }
 
         private void DL_click(object sender, RoutedEventArgs e)
         {
             /// 20200329 transcribed from vb.net 20191020 created
             /// 存儲頁面
-            log.Info("Download key pressed.");
+            log.Info("Enter DL_click due to download key pressed.");
 
             this.TabControl1.SelectedItem = this.TabPage1;
+
+            #region Read local files
+
+            // everytime when I pushed download key
+
+            Local_files.Clear();
+
+            // read file data from directory
+            int i = 1;
+            foreach (string f in Directory.GetFiles(@"D:\IDrive-Sync\archive"))
+            {
+                string ff = f.Replace(@"D:\IDrive-Sync\archive\", "").Replace(".zip", "");
+                Local_files.Add(ff);
+                log.Info($"{i}. {ff} added to Local_files.");
+                i++;
+            }
+
+            #endregion Read local files
 
             #region 判斷多頁
 
@@ -95,24 +142,32 @@ namespace NHIVPNc
             /// 前往讀取第一頁
             current_page = 1;
             Vpn_PageData();
+            log.Info("Exit DL_click.");
         }
 
         private void Refresh_Click(object sender, RoutedEventArgs e)
         {
+            log.Info("Enter Refresh_click due to button pressed.");
             Refresh_Table();
+            log.Info("Exit Refresh_click.");
         }
 
         private void SP_Click(object sender, RoutedEventArgs e)
         {
+            log.Info("Enter SP_click due to button pressed.");
+
+            log.Info("Exit SP_click.");
         }
 
-        #endregion "Buttons"
+        #endregion Buttons
 
         private void TimersTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
+            log.Info($"  Entered TimersTimer_Elapsed.");
             this.Dispatcher.Invoke((Action)(() =>
             {
-                log.Info($"Now dealing with line {current_line}.");
+                log.Info($"    Now dealing with page {current_page}/{total_pages}.");
+                log.Info($"    Now dealing with line {current_line}.");
                 HTMLDocument d = (HTMLDocument)vpnweb.Document;
                 IHTMLElement gvDownLoad = d.getElementById("ContentPlaceHolder1_gvDownLoad");
                 IHTMLElementCollection trs_ = gvDownLoad.all;
@@ -120,7 +175,7 @@ namespace NHIVPNc
                 IHTMLElement tr = trs.item(current_line, null);
                 IHTMLElement a = tr.children[4].children[0];
                 a.click();
-                log.Info($"button click: {a.outerHTML}");
+                log.Info($"    button click: {a.innerHTML}");
 
                 System.Threading.ThreadStart th_begin = new System.Threading.ThreadStart(Work_todo);
                 System.Threading.Thread thr = new System.Threading.Thread(th_begin)
@@ -134,18 +189,22 @@ namespace NHIVPNc
                 if ((queue_files.Count == 0) && (current_page == total_pages))
                 {
                     // 這頁讀完, 且所有頁都讀完了.
+                    log.Info($"    _timer1 stopped. all pages finished.");
                     this._timer1.Stop();
                     Refresh_Table();
                     return;
                 }
                 else if (queue_files.Count == 0)
                 {
+                    log.Info($"    _timer1 stopped. this page finished.");
                     // 這頁讀完, 還有下一頁
                     this._timer1.Stop();
 
                     // 如果下一頁, 前往下一頁
                     current_page++;
                     vpnweb.LoadCompleted += Vpn_Page_LoadCompleted;
+                    log.Info($"    Add delegate Vpn_Page_LoadCompleted.");
+                    log.Info($"    current_page++, press > key. page {current_page}/{total_pages}");
                     // 按鈕機制
                     foreach (IHTMLElement b in d.getElementById("ContentPlaceHolder1_pgDownLoad").all)
                     {
@@ -159,18 +218,16 @@ namespace NHIVPNc
                 else
                 {
                     current_line = queue_files.Dequeue();
+                    log.Info($"    go to next line: {current_line}.");
                 }
             }));
+            log.Info($"  Exited TimersTimer_Elapsed.");
         }
 
         private void Vpn_PageData()
         {
-            log.Info($"Currently on page {current_page}/{total_pages}.");
-            vpnweb.LoadCompleted -= Vpn_Page_LoadCompleted;
-
-            // local variables
-            Dictionary<int, string> VPN_files = new Dictionary<int, string>();
-            List<string> Local_files = new List<string>();
+            log.Info($"Entered Vpn_PageData.");
+            log.Info($"  Currently on page {current_page}/{total_pages}.");
 
             #region write in sql table
 
@@ -257,7 +314,7 @@ namespace NHIVPNc
                 if (!b_archive)
                 {
                     VPN_files.Add(current_line, s_f_name);
-                    log.Info($"{current_line}, {s_f_name} added to VPN_files.");
+                    log.Info($"    {current_line}, {s_f_name} added to VPN_files.");
                 }
 
                 using (NHIDataContext dc = new NHIDataContext())
@@ -286,6 +343,7 @@ namespace NHIVPNc
                         }
                         dc.tbl_download.InsertOnSubmit(newNHI);
                         dc.SubmitChanges();
+                        log.Info($"    [{s_f_name}] added to SQL server");
                     }
                 }
             }
@@ -294,29 +352,19 @@ namespace NHIVPNc
 
             #region download files
 
-            Local_files.Clear();
-
-            // read file data from directory
-            foreach (string f in Directory.GetFiles(@"D:\IDrive-Sync\archive"))
-            {
-                string ff = f.Replace(@"D:\IDrive-Sync\archive\", "").Replace(".zip", "");
-                Local_files.Add(ff);
-                log.Info($"{ff} added to Local_files.");
-            }
-
             // making queue_files
             foreach (KeyValuePair<int, string> v in VPN_files)
             {
                 if (!Local_files.Contains(v.Value))
                 {
                     queue_files.Enqueue(v.Key);
-                    log.Info($"{v.Key}: {v.Value} enqueued.");
+                    log.Info($"    {v.Key}: {v.Value} enqueued.");
                 }
             }
 
             if (queue_files.Count == 0)
             {
-                log.Info($"Nothing enqueued on page {current_page}/{total_pages}");
+                log.Info($"    Nothing enqueued on page {current_page}/{total_pages}");
             }
             else
             {
@@ -329,39 +377,49 @@ namespace NHIVPNc
                 };
                 this._timer1.Elapsed += new System.Timers.ElapsedEventHandler(TimersTimer_Elapsed);
 
+                tb.ShowBalloonTip("計時器開始", $"一共{queue_files.Count}個檔案要下載", BalloonIcon.Info);
                 // initialization
                 current_line = 0;
                 current_line = queue_files.Dequeue();
 
+                log.Info($"    _timer1 started.");
                 this._timer1.Start();
             }
 
             #endregion download files
-
+            log.Info("Exited Vpn_PageData.");
         }
 
         private void Vpn_Page_LoadCompleted(object sender, NavigationEventArgs e)
         {
+            log.Info("    Delete delegate Vpn_Page_LoadCompleted.");
+            vpnweb.LoadCompleted -= Vpn_Page_LoadCompleted;
             Vpn_PageData();
         }
 
         private void Work_todo()
         {
+            log.Info("Enter Work_todo.");
             InputSimulator sim = new InputSimulator();
+            log.Info("Press s");
             System.Threading.Thread.Sleep(4000);
             sim.Keyboard.KeyPress(VirtualKeyCode.VK_S);
+            log.Info("  Press Enter.");
             System.Threading.Thread.Sleep(1000);
             sim.Keyboard.KeyPress(VirtualKeyCode.RETURN);
+            log.Info("Exit Work_todo.");
         }
 
         private void Refresh_Table()
         {
+            log.Info("Enter Refresh_Table.");
             using (NHIDataContext dc = new NHIDataContext())
             {
                 DLData.ItemsSource = from p in dc.tbl_download
                                      orderby p.SDATE descending
                                      select p;
             }
+            log.Info("Exit Refresh_Table.");
         }
     }
 }
