@@ -7,23 +7,26 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Timers;
+using System.Windows.Navigation;
 using WindowsInput;
 using WindowsInput.Native;
 
 namespace NHIVPNc
 {
-
-    internal class VPN_Downloader
+    internal class VPN_Downloader : IDisposable
     {
         #region "Declaration"
 
+        private bool disposed = false;
         private static readonly log4net.ILog log = LogHelper.GetLogger();
         private System.Timers.Timer _timer1;
         private readonly TaskbarIcon tb = new TaskbarIcon();
 
         private int current_page, total_pages, current_line;
+
         // local variables
         private readonly Dictionary<int, string> VPN_files = new Dictionary<int, string>();
+
         private readonly List<string> Local_files = new List<string>();
         private readonly Queue<int> queue_files = new Queue<int>();
 
@@ -32,45 +35,39 @@ namespace NHIVPNc
         private string DOM_FOR_ACTUAL_DATA { get; set; }
         private readonly string LOCAL_FILES_DIRECTORY = @"D:\IDrive-Sync\archive";
         private readonly MainWindow m;
+
         public delegate tbl_download TD_Parcer(HtmlNodeCollection tds);
+
         public TD_Parcer _td_parcer;
 
-        #endregion
+        #endregion "Declaration"
 
-        public VPN_Downloader Clinic_Downloader (MainWindow MW)
-        {
-            log.Info("Clinic Downloader initiated.");
-            VPN_Downloader v = new VPN_Downloader(MW)
-            {
-                DOM_FOR_ACTUAL_DATA = "ContentPlaceHolder1_gvDownLoad",
-                DOM_FOR_PAGECLICK = "ContentPlaceHolder1_pgDownLoad",
-                DOM_FOR_PAGENUMBERS = "ctl00$ContentPlaceHolder1$pgDownLoad_input"
-            };
-            v._td_parcer += Clinic_TD_Parcer;
-
-            return v;
-        }
-
-        public VPN_Downloader Special_Downloader(MainWindow MW)
-        {
-            log.Info("Special Downloader initiated.");
-            VPN_Downloader v = new VPN_Downloader(MW)
-            {
-                DOM_FOR_ACTUAL_DATA = "cph_rptDownload",
-                DOM_FOR_PAGECLICK = "cph_pgDownLoad",
-                DOM_FOR_PAGENUMBERS = "ctl00$cph$pgDownLoad_input"
-            };
-            v._td_parcer += Special_TD_Parcer;
-
-            return v;
-        }
-
-        public VPN_Downloader(MainWindow MW)
+        public VPN_Downloader(MainWindow MW, DownloadType t)
         {
             m = MW;
+            switch (t)
+            {
+                case DownloadType.ClinicDownloader:
+                    DOM_FOR_ACTUAL_DATA = "ContentPlaceHolder1_gvDownLoad";
+                    DOM_FOR_PAGECLICK = "ContentPlaceHolder1_pgDownLoad";
+                    DOM_FOR_PAGENUMBERS = "ctl00$ContentPlaceHolder1$pgDownLoad_input";
+                    _td_parcer += Clinic_TD_Parcer;
+                    break;
+
+                case DownloadType.SpecialDownloader:
+                    DOM_FOR_ACTUAL_DATA = "cph_rptDownload";
+                    DOM_FOR_PAGECLICK = "cph_pgDownLoad";
+                    DOM_FOR_PAGENUMBERS = "ctl00$cph$pgDownLoad_input";
+                    _td_parcer += Special_TD_Parcer;
+                    break;
+
+                default:
+                    Dispose();
+                    break;
+            }
         }
 
-        public void Prepare()
+        public void Start()
         {
             m.TabControl1.SelectedItem = m.TabPage1;
 
@@ -129,10 +126,9 @@ namespace NHIVPNc
             /// 前往讀取第一頁
             current_page = 1;
             Vpn_PageData();
-
         }
 
-        private tbl_download Clinic_TD_Parcer (HtmlNodeCollection tds)
+        private tbl_download Clinic_TD_Parcer(HtmlNodeCollection tds)
         {
             short order_n = 0;
             tbl_download newNHI = new tbl_download();
@@ -337,6 +333,7 @@ namespace NHIVPNc
             }
 
             #endregion download files
+
             log.Info("Exited Vpn_PageData.");
         }
 
@@ -381,7 +378,7 @@ namespace NHIVPNc
 
                     // 如果下一頁, 前往下一頁
                     current_page++;
-                    m.vpnweb.LoadCompleted += m.Vpn_Page_LoadCompleted;
+                    m.vpnweb.LoadCompleted += Vpn_Page_LoadCompleted;
                     log.Info($"    Add delegate Vpn_Page_LoadCompleted.");
                     log.Info($"    current_page++, press > key. page {current_page}/{total_pages}");
                     // 按鈕機制
@@ -403,6 +400,13 @@ namespace NHIVPNc
             log.Info($"  Exited TimersTimer_Elapsed.");
         }
 
+        private void Vpn_Page_LoadCompleted(object sender, NavigationEventArgs e)
+        {
+            log.Info("    Delete delegate Vpn_Page_LoadCompleted.");
+            m.vpnweb.LoadCompleted -= Vpn_Page_LoadCompleted;
+            Vpn_PageData();
+        }
+
         private void Work_todo()
         {
             log.Info("Enter Work_todo.");
@@ -415,5 +419,37 @@ namespace NHIVPNc
             sim.Keyboard.KeyPress(VirtualKeyCode.RETURN);
             log.Info("Exit Work_todo.");
         }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        // Protected implementation of Dispose pattern.
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposed)
+            {
+                return;
+            }
+
+            if (disposing)
+            {
+                // Free any other managed objects here.
+                //
+                _timer1.Stop();
+                _timer1.Dispose();
+                log.Info("timer1 for pressing S stopped.");
+            }
+
+            disposed = true;
+        }
+    }
+
+    public enum DownloadType
+    {
+        ClinicDownloader = 0,
+        SpecialDownloader = 1
     }
 }
