@@ -1,6 +1,7 @@
 ﻿using Hardcodet.Wpf.TaskbarNotification;
 using HtmlAgilityPack;
 using mshtml;
+using NHIVPNc.Models;
 using System;
 using System.Collections.Generic;
 using System.Deployment.Application;
@@ -38,9 +39,12 @@ namespace NHIVPNc
 
         // local variables
         private readonly Dictionary<int, string> VPN_files = new Dictionary<int, string>();
-
         private readonly List<string> Local_files = new List<string>();
         private readonly Queue<int> queue_files = new Queue<int>();
+
+        string DOM_FOR_PAGENUMBERS = @"ctl00$ContentPlaceHolder1$pgDownLoad_input";
+        string DOM_FOR_PAGECLICK = @"ContentPlaceHolder1_pgDownLoad";
+        string DOM_FOR_ACTUAL_DATA = @"ContentPlaceHolder1_gvDownLoad";
 
         #endregion "Declaration"
 
@@ -84,6 +88,7 @@ namespace NHIVPNc
             /// 20200329 transcribed from vb.net 20191020 created
             /// 存儲頁面
             log.Info("Enter DL_click due to download key pressed.");
+            // configuration for 院所下載
 
             this.TabControl1.SelectedItem = this.TabPage1;
 
@@ -109,7 +114,7 @@ namespace NHIVPNc
 
             /// 取得gvList
             HTMLDocument d = (HTMLDocument)vpnweb.Document;
-            IHTMLElement gvDownLoad = d.getElementById("ContentPlaceHolder1_gvDownLoad");
+            IHTMLElement gvDownLoad = d.getElementById(DOM_FOR_ACTUAL_DATA);
             /// is nothing  ==>  == null
             if (gvDownLoad == null) return;
             // 20200329: wpf 要增加reference to Microsoft.mshtml, 已經沒有winform的htmlelement了
@@ -119,7 +124,7 @@ namespace NHIVPNc
             /// 找到雲端藥歷有幾頁
             /// 設定total_pages = ????
             HtmlDocument pg = new HtmlDocument();
-            if (d.getElementById("ContentPlaceHolder1_pgDownLoad") == null)
+            if (d.getElementById(DOM_FOR_PAGECLICK) == null)
             {
                 /// 沒有ContentPlaceHolder1_pg_gvList, 表示只有ㄧ頁
                 total_pages = 1;
@@ -131,7 +136,7 @@ namespace NHIVPNc
                 /// 舊方法 pg_N = pg.Children.Count - 5;
                 /// 如果多頁, 轉換loadcomplete, 呼叫pager by click
                 // 20200502: outerHTML的XPATH="//selection/option", innerHTML的XPATH="//option"
-                pg.LoadHtml(d.getElementById("ctl00$ContentPlaceHolder1$pgDownLoad_input").innerHTML);
+                pg.LoadHtml(d.getElementById(DOM_FOR_PAGENUMBERS).innerHTML);
                 HtmlNodeCollection o = pg.DocumentNode.SelectNodes("//option");
                 total_pages = o.Count;
                 log.Info($"{total_pages} pages detected.");
@@ -169,7 +174,7 @@ namespace NHIVPNc
                 log.Info($"    Now dealing with page {current_page}/{total_pages}.");
                 log.Info($"    Now dealing with line {current_line}.");
                 HTMLDocument d = (HTMLDocument)vpnweb.Document;
-                IHTMLElement gvDownLoad = d.getElementById("ContentPlaceHolder1_gvDownLoad");
+                IHTMLElement gvDownLoad = d.getElementById(DOM_FOR_ACTUAL_DATA);
                 IHTMLElementCollection trs_ = gvDownLoad.all;
                 IHTMLElementCollection trs = trs_.tags("tr");
                 IHTMLElement tr = trs.item(current_line, null);
@@ -206,7 +211,7 @@ namespace NHIVPNc
                     log.Info($"    Add delegate Vpn_Page_LoadCompleted.");
                     log.Info($"    current_page++, press > key. page {current_page}/{total_pages}");
                     // 按鈕機制
-                    foreach (IHTMLElement b in d.getElementById("ContentPlaceHolder1_pgDownLoad").all)
+                    foreach (IHTMLElement b in d.getElementById(DOM_FOR_PAGECLICK).all)
                     {
                         if (b.innerText == ">")
                         {
@@ -233,7 +238,7 @@ namespace NHIVPNc
 
             /// 取得gvList
             HTMLDocument d = (HTMLDocument)vpnweb.Document;
-            IHTMLElement gvDownLoad = d.getElementById("ContentPlaceHolder1_gvDownLoad");
+            IHTMLElement gvDownLoad = d.getElementById(DOM_FOR_ACTUAL_DATA);
 
             /// 讀取
             /// 20200503 我發現Html Agility Pack不能click
@@ -390,27 +395,14 @@ namespace NHIVPNc
             log.Info("Exited Vpn_PageData.");
         }
 
-        private void Vpn_Page_LoadCompleted(object sender, NavigationEventArgs e)
+        public void Vpn_Page_LoadCompleted(object sender, NavigationEventArgs e)
         {
             log.Info("    Delete delegate Vpn_Page_LoadCompleted.");
             vpnweb.LoadCompleted -= Vpn_Page_LoadCompleted;
             Vpn_PageData();
         }
 
-        private void Work_todo()
-        {
-            log.Info("Enter Work_todo.");
-            InputSimulator sim = new InputSimulator();
-            log.Info("Press s");
-            System.Threading.Thread.Sleep(4000);
-            sim.Keyboard.KeyPress(VirtualKeyCode.VK_S);
-            log.Info("  Press Enter.");
-            System.Threading.Thread.Sleep(1000);
-            sim.Keyboard.KeyPress(VirtualKeyCode.RETURN);
-            log.Info("Exit Work_todo.");
-        }
-
-        private void Refresh_Table()
+        public void Refresh_Table()
         {
             log.Info("Enter Refresh_Table.");
             using (NHIDataContext dc = new NHIDataContext())
