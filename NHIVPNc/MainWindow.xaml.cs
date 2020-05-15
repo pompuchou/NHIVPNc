@@ -1,5 +1,4 @@
-﻿using Hardcodet.Wpf.TaskbarNotification;
-using mshtml;
+﻿using mshtml;
 using NHIVPNc.Models;
 using System.Deployment.Application;
 using System.Linq;
@@ -23,7 +22,6 @@ namespace NHIVPNc
 
         ///20200322 created
         private static readonly log4net.ILog log = LogHelper.GetLogger();
-        private readonly TaskbarIcon tb = new TaskbarIcon();
         private VPN_Downloader v;
 
         #endregion Declaration

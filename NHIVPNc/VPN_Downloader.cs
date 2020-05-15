@@ -38,6 +38,9 @@ namespace NHIVPNc
 
         public delegate tbl_download TD_Parcer(HtmlNodeCollection tds);
 
+        // 20200515 created, because after download, we can not go to next page directly, so we have to figure out another method
+        private bool GOTO_NEXT_PAGE = false;
+
         public TD_Parcer _td_parcer;
 
         #endregion "Declaration"
@@ -81,7 +84,8 @@ namespace NHIVPNc
             int i = 1;
             foreach (string f in Directory.GetFiles(LOCAL_FILES_DIRECTORY))
             {
-                string ff = f.Replace($"{LOCAL_FILES_DIRECTORY}\\", "").Replace(".zip", "");
+                string f_ = f.Replace($"{LOCAL_FILES_DIRECTORY}\\", "");
+                string ff = f_.Substring(0, f_.Length - 4);
                 Local_files.Add(ff);
                 log.Info($"{i}. {ff} added to Local_files.");
                 i++;
@@ -311,26 +315,26 @@ namespace NHIVPNc
             if (queue_files.Count == 0)
             {
                 log.Info($"    Nothing enqueued on page {current_page}/{total_pages}");
+                GOTO_NEXT_PAGE = true;
             }
             else
             {
                 // 有東西才需要執行
 
-                // execution
-                this._timer1 = new System.Timers.Timer
-                {
-                    Interval = 6000
-                };
-                this._timer1.Elapsed += new System.Timers.ElapsedEventHandler(TimersTimer_Elapsed);
-
                 tb.ShowBalloonTip("計時器開始", $"一共{queue_files.Count}個檔案要下載", BalloonIcon.Info);
                 // initialization
                 current_line = 0;
                 current_line = queue_files.Dequeue();
-
-                log.Info($"    _timer1 started.");
-                this._timer1.Start();
             }
+            // execution
+            this._timer1 = new System.Timers.Timer
+            {
+                Interval = 6000
+            };
+            this._timer1.Elapsed += new System.Timers.ElapsedEventHandler(TimersTimer_Elapsed);
+
+            log.Info($"    _timer1 started.");
+            this._timer1.Start();
 
             #endregion download files
 
@@ -340,11 +344,41 @@ namespace NHIVPNc
         private void TimersTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
             log.Info($"  Entered TimersTimer_Elapsed.");
+
             m.Dispatcher.Invoke((Action)(() =>
             {
+                HTMLDocument d = (HTMLDocument)m.vpnweb.Document;
+
+                if (GOTO_NEXT_PAGE)
+                {
+                    log.Info($"    _timer1 stopped. this page finished.");
+                    // 這頁讀完, 還有下一頁
+                    this._timer1.Stop();
+
+                    // 不可以馬上前往下一頁
+                    // 如果下一頁, 前往下一頁
+                    tb.ShowBalloonTip("換頁", "下一頁", BalloonIcon.Info);
+                    current_page++;
+                    m.vpnweb.LoadCompleted += Vpn_Page_LoadCompleted;
+                    log.Info($"    Add delegate Vpn_Page_LoadCompleted.");
+                    log.Info($"    current_page++, press > key. page {current_page}/{total_pages}");
+                    // 按鈕機制
+                    foreach (IHTMLElement b in d.getElementById(DOM_FOR_PAGECLICK).all)
+                    {
+                        if (b.innerText == ">")
+                        {
+                            b.click();
+                        }
+                    }
+
+                    GOTO_NEXT_PAGE = false;
+                    tb.ShowBalloonTip("計時器停止", "完成本頁面所有下載", BalloonIcon.Info);
+                    log.Info($"  Exited TimersTimer_Elapsed.");
+                    return;
+                }
+
                 log.Info($"    Now dealing with page {current_page}/{total_pages}.");
                 log.Info($"    Now dealing with line {current_line}.");
-                HTMLDocument d = (HTMLDocument)m.vpnweb.Document;
                 IHTMLElement gvDownLoad = d.getElementById(DOM_FOR_ACTUAL_DATA);
                 IHTMLElementCollection trs_ = gvDownLoad.all;
                 IHTMLElementCollection trs = trs_.tags("tr");
@@ -368,28 +402,13 @@ namespace NHIVPNc
                     log.Info($"    _timer1 stopped. all pages finished.");
                     this._timer1.Stop();
                     m.Refresh_Table();
+                    log.Info($"  Exited TimersTimer_Elapsed.");
+                    tb.ShowBalloonTip("結束", "完成所有頁面讀取", BalloonIcon.Info);
                     return;
                 }
                 else if (queue_files.Count == 0)
                 {
-                    log.Info($"    _timer1 stopped. this page finished.");
-                    // 這頁讀完, 還有下一頁
-                    this._timer1.Stop();
-
-                    // 如果下一頁, 前往下一頁
-                    current_page++;
-                    m.vpnweb.LoadCompleted += Vpn_Page_LoadCompleted;
-                    log.Info($"    Add delegate Vpn_Page_LoadCompleted.");
-                    log.Info($"    current_page++, press > key. page {current_page}/{total_pages}");
-                    // 按鈕機制
-                    foreach (IHTMLElement b in d.getElementById(DOM_FOR_PAGECLICK).all)
-                    {
-                        if (b.innerText == ">")
-                        {
-                            b.click();
-                        }
-                    }
-                    return;
+                    GOTO_NEXT_PAGE = true;
                 }
                 else
                 {

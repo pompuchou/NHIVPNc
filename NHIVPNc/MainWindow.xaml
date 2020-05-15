@@ -21,7 +21,7 @@
             <TabItem Header="表格" Width="300">
                 <Grid Background="#FFE5E5E5">
                     <DataGrid Name="DLData" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" AutoGenerateColumns="False"
-                               AlternatingRowBackground="Lavender" >
+                               AlternatingRowBackground="Lavender" IsReadOnly="True" >
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="檔案名稱" Width="1*" Binding="{Binding f_name}" >
                                 <DataGridTextColumn.ElementStyle>
