@@ -39,6 +39,7 @@ namespace NHIVPNc
         public delegate tbl_download TD_Parcer(HtmlNodeCollection tds);
 
         // 20200515 created, because after download, we can not go to next page directly, so we have to figure out another method
+        // 20200522 defunct; and then I found out it's still a must have idea
         private bool GOTO_NEXT_PAGE = false;
 
         public TD_Parcer _td_parcer;
@@ -134,115 +135,133 @@ namespace NHIVPNc
 
         private tbl_download Clinic_TD_Parcer(HtmlNodeCollection tds)
         {
+            log.Info("  Enter Clinic_TD_Parcer");
             short order_n = 0;
             tbl_download newNHI = new tbl_download();
             foreach (HtmlNode td in tds)
             {
-                switch (order_n)
+                try
                 {
-                    case 0:  //檔案名稱
-                        newNHI.f_name = td.InnerText;
-                        break;
+                    switch (order_n)
+                    {
+                        case 0:  //檔案名稱
+                            newNHI.f_name = td.InnerText;
+                            break;
 
-                    case 1: //檔案說明
-                        newNHI.f_remark = td.InnerText;
-                        break;
+                        case 1: //檔案說明
+                            newNHI.f_remark = td.InnerText;
+                            break;
 
-                    case 2: //下載備註
-                        newNHI.remark = td.InnerText;
-                        break;
+                        case 2: //下載備註
+                            newNHI.remark = td.InnerText;
+                            break;
 
-                    case 3: //提供下載日期
-                        if (td.InnerText != string.Empty)
-                        {
-                            HtmlNode div = td.ChildNodes[1]; // 怪,第一個member竟然是/r/n
-                            string[] temp_s = div.InnerHtml.Replace("<br>", "|").Split('|');
-                            string[] temp_d = temp_s[0].Split('/');
-                            newNHI.SDATE = DateTime.Parse($"{int.Parse(temp_d[0]) + 1911}/{temp_d[1]}/{temp_d[2]} {temp_s[1]}");
-                        }
-                        break;
+                        case 3: //提供下載日期
+                            if (td.InnerText != string.Empty)
+                            {
+                                HtmlNode div = td.ChildNodes[1]; // 怪,第一個member竟然是/r/n
+                                string[] temp_s = div.InnerHtml.Replace("<br>", "|").Split('|');
+                                string[] temp_d = temp_s[0].Split('/');
+                                newNHI.SDATE = DateTime.Parse($"{int.Parse(temp_d[0]) + 1911}/{temp_d[1]}/{temp_d[2]} {temp_s[1]}");
+                            }
+                            break;
 
-                    case 4: //檔案下載
-                        switch (td.SelectNodes("//a").Count)
-                        {
-                            case 2:
-                                newNHI.download = true;
-                                break;
+                        case 4: //檔案下載
+                            switch (td.SelectNodes("//a").Count)
+                            {
+                                case 2:
+                                    newNHI.download = true;
+                                    break;
 
-                            case 1:
-                                newNHI.download = false;
-                                break;
+                                case 1:
+                                    newNHI.download = false;
+                                    break;
 
-                            default:
-                                break;
-                        }
-                        break;
+                                default:
+                                    break;
+                            }
+                            break;
 
-                    default:
-                        break;
+                        default:
+                            break;
+                    }
+                    order_n++;
                 }
-                order_n++;
+                catch (Exception ex)
+                {
+                    log.Error($"[{order_n}], error:{ex.Message}");
+                }
             }
             if ((bool)newNHI.download)
             {
                 VPN_files.Add(current_line, newNHI.f_name);
                 log.Info($"    {current_line}, {newNHI.f_name} added to VPN_files.");
             }
+            log.Info("  Exit Clinic_TD_Parcer");
             return newNHI;
         }
 
         private tbl_download Special_TD_Parcer(HtmlNodeCollection tds)
         {
+            log.Info("  Enter Special_TD_Parcer");
             short order_n = 0;
             tbl_download newNHI = new tbl_download();
             foreach (HtmlNode td in tds)
             {
-                switch (order_n)
+                try
                 {
-                    case 1:  //檔案名稱
-                        newNHI.f_name = td.InnerText;
-                        break;
+                    switch (order_n)
+                    {
+                        case 1:  //檔案名稱
+                            newNHI.f_name = td.InnerText;
+                            break;
 
-                    case 2: //檔案說明
-                        newNHI.f_remark = td.InnerText;
-                        break;
+                        case 2: //檔案說明
+                            newNHI.f_remark = td.InnerText;
+                            break;
 
-                    case 3: //提供下載日期
-                        if (td.InnerText != string.Empty)
-                        {
-                            HtmlNode div = td.ChildNodes[1]; // 怪,第一個member竟然是/r/n
-                            string[] temp_s = div.InnerHtml.Replace("<br>", "|").Split('|');
-                            string[] temp_d = temp_s[0].Split('/');
-                            newNHI.SDATE = DateTime.Parse($"{int.Parse(temp_d[0]) + 1911}/{temp_d[1]}/{temp_d[2]} {temp_s[1]}");
-                        }
-                        break;
+                        case 3: //提供下載日期
+                            if (td.InnerText != string.Empty)
+                            {
+                                // 20200522, 原來要Trim掉頭尾的空白,這樣就正確了
+                                string[] temp_s = td.InnerText.Trim().Split(' ');
+                                string[] temp_d = temp_s[0].Split('/');
+                                newNHI.SDATE = DateTime.Parse($"{int.Parse(temp_d[0]) + 1911}/{temp_d[1]}/{temp_d[2]} {temp_s[1]}");
+                            }
+                            break;
 
-                    case 4: //檔案下載
-                        switch (td.SelectNodes("//a").Count)
-                        {
-                            case 2:
-                                newNHI.download = true;
-                                break;
+                        case 4: //檔案下載
+                            switch (td.SelectNodes("//a").Count)
+                            {
+                                case 2:
+                                    newNHI.download = true;
+                                    break;
 
-                            case 1:
-                                newNHI.download = false;
-                                break;
+                                case 1:
+                                    newNHI.download = false;
+                                    break;
 
-                            default:
-                                break;
-                        }
-                        break;
+                                default:
+                                    break;
+                            }
+                            break;
 
-                    default:
-                        break;
+                        default:
+                            break;
+                    }
+                    order_n++;
                 }
-                order_n++;
+                catch (Exception ex)
+                {
+                    log.Error($"[{order_n}], error:{ex.Message}");
+                }
             }
             if ((bool)newNHI.download)
             {
                 VPN_files.Add(current_line, newNHI.f_name);
                 log.Info($"    {current_line}, {newNHI.f_name} added to VPN_files.");
             }
+            log.Info("  Exit Special_TD_Parcer");
             return newNHI;
         }
 
@@ -256,6 +275,7 @@ namespace NHIVPNc
             /// 取得gvList
             HTMLDocument d = (HTMLDocument)m.vpnweb.Document;
             IHTMLElement gvDownLoad = d.getElementById(DOM_FOR_ACTUAL_DATA);
+            log.Info($"[{DOM_FOR_ACTUAL_DATA}] is read.");
 
             /// 讀取
             /// 20200503 我發現Html Agility Pack不能click
@@ -312,10 +332,16 @@ namespace NHIVPNc
                 }
             }
 
-            if (queue_files.Count == 0)
+            if ((queue_files.Count == 0) && (current_page == total_pages))
+            {
+                // 這頁讀完, 且所有頁都讀完了.
+                m.Refresh_Table();
+                tb.ShowBalloonTip("結束", "完成所有頁面讀取", BalloonIcon.Info);
+            }
+            else if (queue_files.Count == 0)
             {
                 log.Info($"    Nothing enqueued on page {current_page}/{total_pages}");
-                GOTO_NEXT_PAGE = true;
+                Goto_next_page();
             }
             else
             {
@@ -325,16 +351,17 @@ namespace NHIVPNc
                 // initialization
                 current_line = 0;
                 current_line = queue_files.Dequeue();
-            }
-            // execution
-            this._timer1 = new System.Timers.Timer
-            {
-                Interval = 6000
-            };
-            this._timer1.Elapsed += new System.Timers.ElapsedEventHandler(TimersTimer_Elapsed);
 
-            log.Info($"    _timer1 started.");
-            this._timer1.Start();
+                // execution
+                this._timer1 = new System.Timers.Timer
+                {
+                    Interval = 6000
+                };
+                this._timer1.Elapsed += new System.Timers.ElapsedEventHandler(TimersTimer_Elapsed);
+
+                log.Info($"    _timer1 started.");
+                this._timer1.Start();
+            }
 
             #endregion download files
 
@@ -349,30 +376,16 @@ namespace NHIVPNc
             {
                 HTMLDocument d = (HTMLDocument)m.vpnweb.Document;
 
+                // dispatcher的問題, 要叫用就要在這裡面
                 if (GOTO_NEXT_PAGE)
                 {
-                    log.Info($"    _timer1 stopped. this page finished.");
-                    // 這頁讀完, 還有下一頁
+                    GOTO_NEXT_PAGE = false;
+
+                    log.Info($"    _timer1 stopped. this pages finished.");
                     this._timer1.Stop();
 
-                    // 不可以馬上前往下一頁
-                    // 如果下一頁, 前往下一頁
-                    tb.ShowBalloonTip("換頁", "下一頁", BalloonIcon.Info);
-                    current_page++;
-                    m.vpnweb.LoadCompleted += Vpn_Page_LoadCompleted;
-                    log.Info($"    Add delegate Vpn_Page_LoadCompleted.");
-                    log.Info($"    current_page++, press > key. page {current_page}/{total_pages}");
-                    // 按鈕機制
-                    foreach (IHTMLElement b in d.getElementById(DOM_FOR_PAGECLICK).all)
-                    {
-                        if (b.innerText == ">")
-                        {
-                            b.click();
-                        }
-                    }
+                    Goto_next_page();
 
-                    GOTO_NEXT_PAGE = false;
-                    tb.ShowBalloonTip("計時器停止", "完成本頁面所有下載", BalloonIcon.Info);
                     log.Info($"  Exited TimersTimer_Elapsed.");
                     return;
                 }
@@ -400,14 +413,13 @@ namespace NHIVPNc
                 {
                     // 這頁讀完, 且所有頁都讀完了.
                     log.Info($"    _timer1 stopped. all pages finished.");
-                    this._timer1.Stop();
                     m.Refresh_Table();
-                    log.Info($"  Exited TimersTimer_Elapsed.");
                     tb.ShowBalloonTip("結束", "完成所有頁面讀取", BalloonIcon.Info);
-                    return;
+                    this._timer1.Stop();
                 }
                 else if (queue_files.Count == 0)
                 {
+                    // 這頁讀完, 但還有下一頁.
                     GOTO_NEXT_PAGE = true;
                 }
                 else
@@ -416,7 +428,36 @@ namespace NHIVPNc
                     log.Info($"    go to next line: {current_line}.");
                 }
             }));
+
             log.Info($"  Exited TimersTimer_Elapsed.");
+            return;
+        }
+
+        private void Goto_next_page()
+        {
+            log.Info("    Entered Goto_next_page.");
+            HTMLDocument d = (HTMLDocument)m.vpnweb.Document;
+            // 這頁讀完, 還有下一頁
+
+            // 不可以馬上前往下一頁
+            // 如果下一頁, 前往下一頁
+            tb.ShowBalloonTip("換頁", "下一頁", BalloonIcon.Info);
+            current_page++;
+            m.vpnweb.LoadCompleted += Vpn_Page_LoadCompleted;
+            log.Info($"    Add delegate Vpn_Page_LoadCompleted.");
+            log.Info($"    current_page++, press > key. go to page {current_page}/{total_pages}");
+            // 按鈕機制
+            foreach (IHTMLElement b in d.getElementById(DOM_FOR_PAGECLICK).all)
+            {
+                if (b.innerText == ">")
+                {
+                    b.click();
+                }
+            }
+
+            //tb.ShowBalloonTip("計時器停止", "完成本頁面所有下載", BalloonIcon.Info);
+            log.Info("    Exited Goto_next_page.");
+            return;
         }
 
         private void Vpn_Page_LoadCompleted(object sender, NavigationEventArgs e)
