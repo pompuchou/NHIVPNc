@@ -75,7 +75,7 @@ namespace NHIVPNc
                 log.Info("  Clinic Download page found.");
                 v = new VPN_Downloader(this, DownloadType.ClinicDownloader);
             }
-            else if (d?.getElementById("ContentPlaceHolder1_gvDownLoad") != null)
+            else if (d?.getElementById("cph_rptDownload") != null)
             {
                 log.Info("  Special Download page found.");
                 v = new VPN_Downloader(this, DownloadType.SpecialDownloader);
