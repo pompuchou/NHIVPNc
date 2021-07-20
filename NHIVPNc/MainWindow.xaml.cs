@@ -1,5 +1,4 @@
-﻿using mshtml;
-using NHIVPNc.Models;
+﻿using NHIVPNc.Models;
 using System.Deployment.Application;
 using System.Linq;
 using System.Windows;
@@ -50,48 +49,6 @@ namespace NHIVPNc
 
             Refresh_Table();
         }
-
-        #region Buttons
-
-        private void VPN_click(object sender, RoutedEventArgs e)
-        {
-            log.Info("Enter VPN_click due to button pressed.");
-            /// 2020/03/28 created, transcribed from vb.net
-            vpnweb.Navigate("https://medvpn.nhi.gov.tw/ieae0000/IEAE0200S01.aspx");
-            log.Info("Exit VPN_click.");
-        }
-
-        private void DL_click(object sender, RoutedEventArgs e)
-        {
-            /// 20200329 transcribed from vb.net 20191020 created
-            /// 存儲頁面
-            log.Info("Enter DL_click due to download key pressed.");
-            // configuration for 院所下載
-
-            // 判斷所在的頁面
-            HTMLDocument d = (HTMLDocument)vpnweb.Document;
-            if (d?.getElementById("ContentPlaceHolder1_gvDownLoad") != null)
-            {
-                log.Info("  Clinic Download page found.");
-                v = new VPN_Downloader(this, DownloadType.ClinicDownloader);
-            }
-            else if (d?.getElementById("cph_rptDownload") != null)
-            {
-                log.Info("  Special Download page found.");
-                v = new VPN_Downloader(this, DownloadType.SpecialDownloader);
-            }
-            else
-            {
-                log.Info("  No download page found.");
-                log.Info("Exit DL_click.");
-                return;
-            }
-                /// 前往讀取第一頁
-                v.Start();
-            log.Info("Exit DL_click.");
-        }
-
-        #endregion Buttons
 
         public void Refresh_Table()
         {
