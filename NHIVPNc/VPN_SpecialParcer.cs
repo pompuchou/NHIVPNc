@@ -18,11 +18,15 @@ namespace NHIVPNc
                     switch (order_n)
                     {
                         case 1:  //檔案名稱
-                            newNHI.f_name = td.InnerText;
+                            //newNHI.f_name = td.InnerText;
+                            // 20210720: 修正—改正為-
+                            newNHI.f_name = td.InnerText.Replace('—', '-');
                             break;
 
                         case 2: //檔案說明
-                            newNHI.f_remark = td.InnerText;
+                            // 20210720: 修正—改正為-
+                            //newNHI.f_remark = td.InnerText;
+                            newNHI.f_remark = td.InnerText.Replace('—', '-');
                             break;
 
                         case 3: //提供下載日期
